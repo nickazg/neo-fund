@@ -20,6 +20,9 @@ namespace NeoFund
 
         public static Object Main(string operation, params object[] args)
         {
+            Runtime.Notify("Version 1.1");
+            Runtime.Notify(Runtime.Trigger);
+            Runtime.Notify("operation", operation);
             Runtime.Notify("arg length ", args.Length);
             Runtime.Notify("args", args);
 
@@ -75,6 +78,7 @@ namespace NeoFund
             // Invocation transaction
             else if (Runtime.Trigger == TriggerType.Application)
             {
+                Runtime.Notify("Runtime.Trigger");
                 // Operation Permissions:
                 //      Admin:          SetFee
                 //      Creator:        CreateFund, DeleteFund
@@ -91,6 +95,7 @@ namespace NeoFund
                 // CREATE FUND
                 if (operation == "CreateFund")
                 {
+                    Runtime.Notify("CreateFund ");
                     // Checks we have all arg inputs
                     if (args.Length != 6) return false;
 
@@ -105,9 +110,9 @@ namespace NeoFund
                     byte[] withdrawalSH = (byte[])args[3];
                     Runtime.Notify("withdrawalSH", withdrawalSH);
                     BigInteger goal = (BigInteger)args[4];
-                    Runtime.Notify("goal", goal);
+                    Runtime.Notify("goal", (int)args[4]);
                     BigInteger endtime = (BigInteger)args[5];
-                    Runtime.Notify("endtime", endtime);
+                    Runtime.Notify("endtime", (int)args[5]);
 
                     Runtime.Notify("Executing Params");
                     // execute CreateFund()
@@ -175,9 +180,11 @@ namespace NeoFund
 
             // If fund exists.
             if (!FundExists(fid)) return false;
+            Runtime.Notify("Fund Exitsts!", fid);
 
             // Gets the deposit amount 
             BigInteger txAmount = GetTransactionAmount(asset);
+            Runtime.Notify("txAmount", txAmount);
 
             // Updates balance if deposited amount is bigger than 0
             if (txAmount > 0)
@@ -200,7 +207,7 @@ namespace NeoFund
         private static byte[] GetFundParameter(byte[] fid, string param)
         {
             Runtime.Notify("Getting Fund Param: ", fid, param);
-
+            Runtime.Notify("Fund Param: ", StorageGet(fid, param).AsBigInteger());
             return StorageGet(fid, param);
         }
 
@@ -363,6 +370,7 @@ namespace NeoFund
         // Saves value to storage using unique id and key
         private static void StoragePut(byte[] fid, string key, byte[] value)
         {
+            Runtime.Notify("StoragePut", string.Concat(fid, key), value);
             Storage.Put(Storage.CurrentContext, string.Concat(fid, key), value);
         }
 
@@ -375,6 +383,7 @@ namespace NeoFund
         // Gets value from storage using unique id and key
         private static byte[] StorageGet(byte[] fid, string key)
         {
+            Runtime.Notify("StorageGet", string.Concat(fid, key));
             return Storage.Get(Storage.CurrentContext, string.Concat(fid, key));
         }
 
@@ -387,6 +396,7 @@ namespace NeoFund
         // Checks storage for exisiting fid, returns false if null
         private static bool FundExists(byte[] fid)
         {
+            Runtime.Notify("Storage.Get(fid)", Storage.Get(Storage.CurrentContext, fid));
             if (Storage.Get(Storage.CurrentContext, fid) == null) return false;
             else return true;
         }
