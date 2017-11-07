@@ -33,6 +33,12 @@ neo_fund_avm = '/Users/nick/Documents/Git/NeoDev/neo-fund/neo-fund-sc/neo-fund-s
 neo_fund_sc = '64da1df94e1321e767ea1a62322957ebddcfaaef'
 python_wallet = '/Users/nick/Documents/Git/NeoDev/pythonWallet.db3'
 pythong_wallet_pass = 'pythonwallet'
+test_fund = 'fund8'
+
+neo_asset_id_hex = 'c56f33fc6ecfcd0c225c4ab356fee59390af8560be0e930faebe74a6daff7c9b'
+neo_asset_id_bytes = bytearray(b'\x9b|\xff\xda\xa6t\xbe\xae\x0f\x93\x0e\xbe`\x85\xaf\x90\x93\xe5\xfeV\xb3J\\"\x0c\xcd\xcfn\xfc3o\xc5')
+
+gas_asset_id_hex = '602c79718b16e442de58778e148d0b1084e3b2dffd5de6b7b16cee7969282de7'
 
 class NeoFund:
     def __init__(self, walletpath, walletpass, operation, params=None, deploy=False):
@@ -89,6 +95,9 @@ class NeoFund:
         self._walletdb_loop = task.LoopingCall(self.Wallet.ProcessBlocks)
         self._walletdb_loop.start(1)
 
+    def show_wallet(self, arguments):
+        print("Wallet %s " % json.dumps(self.Wallet.ToJson(), indent=4))
+
     def invokeDeploy(self):
         if self.contract_script:
             tx, fee, results, num_ops = test_invoke(self.contract_script, self.Wallet, [])
@@ -100,7 +109,7 @@ class NeoFund:
             print('deploing Contract...')
 
     def autoDeploy(self):
-        function_code = LoadContract([neo_fund_avm, '05', '05', 'True'])
+        function_code = LoadContract([neo_fund_avm, '0710', '05', 'True'])
         self.contract_script = generate_deploy_script(
             function_code.Script,
             'NeoFund',
@@ -108,7 +117,7 @@ class NeoFund:
             'Nick',
             'nickazg@gmail.com',
             'auto deploy',
-            function_code.NeedsStorage,
+            True,
             ord(function_code.ReturnType),
             function_code.ParameterList
         )
@@ -120,7 +129,7 @@ class NeoFund:
         return self.contract_script
 
     def get_completer(self):
-        standard_completions = ['createFund', 'invokeDeploy', 'depositFunds', 'getFundParameter', 'quit','help','tx']
+        standard_completions = ['wallet','createFund', 'invokeDeploy', 'depositFunds', 'getFundParameter', 'quit','help','tx']
 
         if self.Wallet:
             for addr in self.Wallet.Addresses:
@@ -178,9 +187,6 @@ class NeoFund:
             except KeyboardInterrupt:
                 # Control-C pressed: do nothing
                 continue
-
-
-
             try:
                 command, arguments = self.parse_result(result)
 
@@ -193,14 +199,16 @@ class NeoFund:
                         self.help()
                     elif command == 'tx':
                         self.show_tx(arguments)
+                    elif command == 'wallet':
+                        self.show_wallet(arguments)
                     elif command == 'invokeDeploy':
                         self.invokeDeploy()
                     elif command == 'createFund':
-                        self.createFund(self.Wallet, 'Fund4', 'neo', 'withdrawal_SH', 100, 9999)
+                        self.createFund(self.Wallet, test_fund, 'neo', 'withdrawal_SH', 100, 9999)
                     elif command == 'getFundParameter':
-                        self.getFundParameter(self.Wallet, 'Fund4', 'creatorSH')
+                        self.getFundParameter(self.Wallet, test_fund, 'fundBalance')
                     elif command == 'depositFunds':
-                        self.depositFunds(self.Wallet, 'Fund4', 'neo', 2)
+                        self.depositFunds(self.Wallet, test_fund, 'neo', 2)
                     elif command is None:
                         print('please specify a command')
                     else:
@@ -224,7 +232,7 @@ class NeoFund:
         print("Invoke TX gas cost: %s " % (tx.Gas.value / Fixed8.D))
         print("Invoke TX Fee: %s " % (fee.value / Fixed8.D))
         print("-------------------------------------------------------------------------------------------------------------------------------------\n")
-        print("Invoking to Blockchain contract please wait...")
+        print("Invoking Contract to Blockchain please wait...")
 
     def intToByteArray(self, int_input):
         return int_input.to_bytes((int_input.bit_length() + 7) // 8, 'little')
@@ -252,10 +260,12 @@ class NeoFund:
     def depositFunds(self, wallet, fund_id, asset_id, amount):
 
         if asset_id == 'neo':
-            asset_id_bytes = Blockchain.Default().SystemShare().Hash.ToBytes() # NEO asset_id
+            # asset_id_bytes = Blockchain.Default().SystemShare().Hash.ToBytes() # NEO asset_id
+            asset_id_bytes = neo_asset_id_bytes # NEO asset_id
 
         elif asset_id == 'gas':
-            asset_id_bytes = Blockchain.Default().SystemCoin().Hash.ToBytes() # GAS asset_id
+            asset_id_bytes = bytearray.fromhex(gas_asset_id_hex) # GAS asset_id
+
 
         else:
             return
@@ -309,39 +319,6 @@ class NeoFund:
 
         if tx is not None and results is not None:
             self.invokeContract(wallet, tx, fee, results, num_ops)
-
-
-    # def run(self):
-    #     dbloop = task.LoopingCall(Blockchain.Default().PersistBlocks)
-    #     dbloop.start(.1)
-    #     Blockchain.Default().PersistBlocks()
-    #
-    #     self.createWallet()
-    #
-    #     self.contract_script = self.autoDeploy()
-    #
-    #     if self.contract_script is not None:
-    #
-    #         tx, fee, results, num_ops = test_invoke(self.contract_script, self.Wallet, [])
-    #         InvokeContract(self.Wallet, tx, fee)
-    #
-    #         print('\nDEPLOY', results)
-    #         if self.deploy:
-    #             print('new_sc_script:', function_code.ToJson())
-    #             print('deploing Contract...')
-    #             # time.sleep(30)
-    #
-    #         # Creating a new fund
-    #         if self.operation == 'createFund':
-    #             self.createFund(self.Wallet, 'Fund4', 'neo', 'withdrawal_SH', 100, 9999)
-    #
-    #         if self.operation == 'depositFunds':
-    #             self.depositFunds(self.Wallet, 'Fund4', 'neo', 2)
-    #
-    #         if self.operation == 'getFundParameter':
-    #             self.getFundParameter(self.Wallet, 'Fund4', 'creatorSH')
-    #
-    #     self.quit()
 
 
 if __name__ == "__main__":
