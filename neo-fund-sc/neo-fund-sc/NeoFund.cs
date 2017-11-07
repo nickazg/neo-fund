@@ -10,7 +10,8 @@ namespace NeoFund
     {
         private static readonly byte[] neo = { 197, 111, 51, 252, 110, 207, 205, 12, 34, 92, 74, 179, 86, 254, 229, 147, 144, 175, 133, 96, 190, 147, 15, 174, 190, 116, 166, 218, 255, 124, 155 };
         private static readonly byte[] admin = { 0 };
-        public static TransactionOutput[] references;
+        public static TransactionOutput[] references = new TransactionOutput[0];
+        public const string Base58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
         //private static readonly int fidLength = 20;
         //private static readonly int assetIDLength = 32;
@@ -20,7 +21,7 @@ namespace NeoFund
 
         public static Object Main(string operation, params object[] args)
         {
-            Runtime.Notify("Version 1.18");
+            Runtime.Notify("Version 1.19");
             Runtime.Notify(Runtime.Trigger);
             Runtime.Notify("operation", operation);
             Runtime.Notify("arg length ", args.Length);
@@ -276,14 +277,12 @@ namespace NeoFund
         // Gets the sender transaction object [AssetId, ScriptHash, Value]
         private static TransactionOutput GetSenderObject(byte[] asset)
         {
+            // TODO
             // So we only call GetReferences() once
             //if (references == null)
             //{
             //    Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
             //    TransactionOutput[] references = tx.GetReferences();
-            //    Runtime.Notify("Transaction", tx);
-            //    Runtime.Notify("Transaction Hash", tx.Hash);
-            //    Runtime.Notify("references", references);
             //}
 
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
@@ -348,13 +347,14 @@ namespace NeoFund
             return funds;
         }
 
+
         // TODO - add email
         // Will add contributor Address details to Storage.
         private static bool SaveContributorInfo(string fid, byte[] asset, byte[] contributorSH)
         {
             BigInteger bal;
             BigInteger owed = 0;
-
+ 
             // If contributorSH storage doesnt exist, adds it.
             if (SubStorageGet(fid, "contributorSH", contributorSH.AsString()) == null)
             {
@@ -383,7 +383,6 @@ namespace NeoFund
         private static byte[] GetContributorInfo(string fid, byte[] contributorSH, string key)
         {
             Runtime.Notify("Getting ContributorInfo: ", fid, contributorSH, key);
-
             return SubStorageGet(fid, contributorSH.AsString(), key);
         }
 
@@ -397,7 +396,9 @@ namespace NeoFund
         // Saves value to storage using unique id and key and sub key
         private static void SubStoragePut(string fid, string key, string subKey, byte[] value)
         {
-            Storage.Put(Storage.CurrentContext, string.Concat(fid, key, subKey), value);
+            string storageKey = string.Concat(string.Concat(fid, key), subKey);
+            Runtime.Notify("SubStoragePut storageKey", storageKey);
+            Storage.Put(Storage.CurrentContext, storageKey, value);
         }
 
         // Gets value from storage using unique id and key
@@ -410,7 +411,9 @@ namespace NeoFund
         // Gets value from storage using unique id and key sub key
         private static byte[] SubStorageGet(string fid, string key, string subKey)
         {
-            return Storage.Get(Storage.CurrentContext, string.Concat(fid, key, subKey));
+            string storageKey = string.Concat(string.Concat(fid, key), subKey);
+            Runtime.Notify("SubStorageGet storageKey", storageKey);
+            return Storage.Get(Storage.CurrentContext, storageKey);
         }
 
         // Checks storage for exisiting fid, returns false if null
