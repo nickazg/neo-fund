@@ -10,19 +10,12 @@ namespace NeoFund
     {
         private static readonly byte[] neo = { 197, 111, 51, 252, 110, 207, 205, 12, 34, 92, 74, 179, 86, 254, 229, 147, 144, 175, 133, 96, 190, 147, 15, 174, 190, 116, 166, 218, 255, 124, 155 };
         private static readonly byte[] admin = { 0 };
-        public static TransactionOutput[] references = new TransactionOutput[0];
-        public const string Base58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-        //private static readonly int fidLength = 20;
-        //private static readonly int assetIDLength = 32;
-        //private static readonly int contributorSHLength = 33;
-        // = 85
-
+        //public static TransactionOutput[] references = new TransactionOutput[0];
 
         public static Object Main(string operation, params object[] args)
         {
-            Runtime.Notify("Version 1.19");
-            Runtime.Notify(Runtime.Trigger);
+            Runtime.Notify("Version 1.25");
+            Runtime.Notify("Runtime.Trigger", Runtime.Trigger);
             Runtime.Notify("operation", operation);
             Runtime.Notify("arg length ", args.Length);
             Runtime.Notify("args", args);
@@ -30,49 +23,85 @@ namespace NeoFund
             // Contract transaction, ie assest deposit/withdrawl transaction (operation == signature)
             if (Runtime.Trigger == TriggerType.Verification)
             {
+                Runtime.Notify("Verification transaction");
                 // Block Deposits that arent correctly invoked.
 
                 // Refund Transaction (Allow if goal isnt reached)
-                //TransactionOutput senderObj = GetSenderObject(neo);
-                //byte[] senderSH = (byte[])senderObj.ScriptHash;
+                TransactionOutput senderObject = GetSenderObject(GetSenderObjects());
+                byte[] contributorSH = senderObject.ScriptHash;
+                Runtime.Notify("TriggerType.Verification => contributorSH", contributorSH);
 
-                //if (IsContributorSH(senderSH))
-                //{
-                //    // TODO #
-                //    BigInteger amountRequested = (BigInteger)senderObj.Value;
+                if (IsContributorSH(contributorSH))
+                {
+                    // TODO #
+                    BigInteger withdrawRequested = (long)senderObject.Value / (long)100000000;
+                    Runtime.Notify("TriggerType.Verification => withdrawRequested", withdrawRequested);
 
-                //    // if Requested is less than GetTotalFundsOwed()
-                //    BigInteger totalOwed = GetTotalFundsOwed(senderSH);
-                //    if (amountRequested <= totalOwed)
-                //    {
-                //        BigInteger removalRaito = totalOwed / amountRequested;
+                    // if Requested is less than GetTotalFundsOwed()
+                    BigInteger totalOwed = GetTotalFundsOwed(contributorSH);
+                    Runtime.Notify("TriggerType.Verification => totalOwed", totalOwed);
 
-                //        // Updates balances for senderSH on each fund (even portion removed)
-                //        byte[][] contributedFunds = GetFundsFromContributorSH(senderSH);
-                //        for (int i = 0; i < contributedFunds.Length; i++)
-                //        {
-                //            string fid = contributedFunds[i].AsString();
+                    if (withdrawRequested <= totalOwed)
+                    {
+                        // Gets owed balance for each fund, will loop through all funds till withdrawRequested is filled
+                        string[] contributedFunds = GetFundsFromContributorSH(contributorSH);
+                        foreach (string fid in contributedFunds)
+                        {
+                            // Will break loop if no funds are requested.
+                            //if (withdrawRequested <= 0) break;
 
-                //            // Gets current balance for senderSH
-                //            BigInteger bal = SubStorageGet(fid, senderSH.AsString(), "balance").AsBigInteger();
-                //            BigInteger owed = SubStorageGet(fid, senderSH.AsString(), "owed").AsBigInteger();
+                            //string fid = contributedFunds[i];
+                            Runtime.Notify("TriggerType.Verification => fid", fid);
 
-                //            // Removes an even portion of each fund balance                            
-                //            BigInteger newOwed = owed / removalRaito;
-                //            BigInteger newBal = bal - (owed - newOwed);
+                            // Gets current balance for contributorSH
+                            BigInteger bal = SubStorageGet(fid, contributorSH.AsString(), "balance").AsBigInteger();
+                            BigInteger owed = SubStorageGet(fid, contributorSH.AsString(), "owed").AsBigInteger();
+                            Runtime.Notify("TriggerType.Verification => bal", bal);
+                            Runtime.Notify("TriggerType.Verification => owed", owed);
 
-                //            // Update contributorSH Storage details
-                //            SubStoragePut(fid, senderSH.AsString(), "balance", newBal.AsByteArray());
-                //            SubStoragePut(fid, senderSH.AsString(), "owed", newOwed.AsByteArray());
-                //        }
+                            // Removes an even portion of each fund balance                            
+                            BigInteger newOwed = owed;
 
-                //        return true;
-                //    }
+                            // If withdraw Request can be filled
+                            if (withdrawRequested <= owed)
+                            {
+                                newOwed = owed - withdrawRequested;
+                                withdrawRequested = 0;
+                            }
 
-                //    return false;
+                            // if withdraw Requested can only be partially filled
+                            else if (withdrawRequested > owed)
+                            {
+                                newOwed = 0;
+                                withdrawRequested = withdrawRequested - owed;
+                            }
 
-                //}
+                            // Update fund balance
+                            BigInteger newBal = bal - (owed - newOwed);
 
+
+                            // Update contributorSH Storage details
+                            Runtime.Notify("TriggerType.Verification => Update contributorSH Storage details: newOwed", newOwed);
+                            Runtime.Notify("TriggerType.Verification => Update contributorSH Storage details: newBal", newBal);
+                            Runtime.Notify("TriggerType.Verification => fid", fid);
+                            Runtime.Notify("TriggerType.Verification => contributorSH.AsString()", contributorSH.AsString());
+                            Runtime.Notify("TriggerType.Verification => newBal.AsByteArray()", newBal.AsByteArray());
+                            //Storage.Put(Storage.CurrentContext, "test", new byte[0]);
+                            //Storage.Put(Storage.CurrentContext, "test", "STRING");
+                            //SubStoragePut(fid, contributorSH.AsString(), "balance", newBal.AsByteArray());
+                            //SubStoragePut(fid, contributorSH.AsString(), "owed", newOwed.AsByteArray());
+                        }
+
+                        Runtime.Notify("TriggerType.Verification => Passed transaction");
+                        return true;
+                    }
+
+                    Runtime.Notify("TriggerType.Verification => withdrawRequested too high");
+                    //return false;
+
+                }
+
+                return true;
                 // Withdrawl Transaction to goal address (Allow if goal is reached)
             }
 
@@ -148,18 +177,87 @@ namespace NeoFund
             return false;
         }
 
+        private static bool WithdrawFundsRequest(byte[] contributorSH, string fid, BigInteger requestedAmount)
+        {
+            if (IsContributorSH(contributorSH))
+            {
+                // if Requested is less than GetTotalFundsOwed()
+                BigInteger totalOwed = GetTotalFundsOwed(contributorSH);
+                Runtime.Notify("WithdrawFundsRequest() => totalOwed", totalOwed);
+
+                if (requestedAmount <= totalOwed)
+                {
+                    // Gets owed balance for each fund, will loop through all funds till withdrawRequested is filled
+
+                    // Will break loop if no funds are requested.
+                    //if (requestedAmount <= 0) break;
+
+                    //string fid = contributedFunds[i];
+                    Runtime.Notify("TriggerType.Verification => fid", fid);
+
+                    // Gets current balance for contributorSH
+                    BigInteger bal = SubStorageGet(fid, contributorSH.AsString(), "balance").AsBigInteger();
+                    BigInteger owed = SubStorageGet(fid, contributorSH.AsString(), "owed").AsBigInteger();
+                    Runtime.Notify("TriggerType.Verification => bal", bal);
+                    Runtime.Notify("TriggerType.Verification => owed", owed);
+
+                    // Removes an even portion of each fund balance                            
+                    BigInteger newOwed = owed;
+
+                    // If withdraw Request can be filled
+                    if (requestedAmount <= owed)
+                    {
+                        newOwed = owed - requestedAmount;
+                        requestedAmount = 0;
+                    }
+
+                    // if withdraw Requested can only be partially filled
+                    else if (requestedAmount > owed)
+                    {
+                        newOwed = 0;
+                        requestedAmount = requestedAmount - owed;
+                    }
+
+                    // Update fund balance
+                    BigInteger newBal = bal - (owed - newOwed);
+
+
+                    // Update contributorSH Storage details
+                    Runtime.Notify("TriggerType.Verification => Update contributorSH Storage details: newOwed", newOwed);
+                    Runtime.Notify("TriggerType.Verification => Update contributorSH Storage details: newBal", newBal);
+                    Runtime.Notify("TriggerType.Verification => fid", fid);
+                    Runtime.Notify("TriggerType.Verification => contributorSH.AsString()", contributorSH.AsString());
+                    Runtime.Notify("TriggerType.Verification => newBal.AsByteArray()", newBal.AsByteArray());
+                    //Storage.Put(Storage.CurrentContext, "test", new byte[0]);
+                    Storage.Put(Storage.CurrentContext, "test", "STRING");
+                    //SubStoragePut(fid, contributorSH.AsString(), "balance", newBal.AsByteArray());
+                    //SubStoragePut(fid, contributorSH.AsString(), "owed", newOwed.AsByteArray());
+
+                                   
+                }
+
+                Runtime.Notify("WithdrawFundsRequest() => withdrawRequested too high");
+                return false;
+            }
+
+            return true;
+        }
+
         private static bool CreateFund(byte[] creatorSH, string fid, byte[] asset, byte[] withdrawalSH, BigInteger goal, BigInteger endtime)
         {
             Runtime.Notify("CreatingFund: ", fid);
 
             // If creatorSH isnt actually the creator 
             if (!Runtime.CheckWitness(creatorSH)) return false;
+            Runtime.Notify("CheckWitness Passed");
 
             // If fund already exists with same fid, exit.
             if (FundExists(fid)) return false;
+            Runtime.Notify("Fund already Exists");
 
             // Saves fid to contract storage
             Storage.Put(Storage.CurrentContext, fid, fid);
+            Runtime.Notify("Saved Fund to storage");
 
             // Default Balance
             BigInteger newBalance = 0;
@@ -182,7 +280,7 @@ namespace NeoFund
 
             // If fund exists.
             if (!FundExists(fid)) return false;
-            Runtime.Notify("Fund Exists!", fid);
+            Runtime.Notify("Found existing Fund", fid);
 
             // Gets the deposit amount 
             BigInteger txAmount = GetTransactionAmount(asset);
@@ -209,15 +307,13 @@ namespace NeoFund
         private static byte[] GetFundParameter(string fid, string param)
         {
             Runtime.Notify("Getting Fund Param: ", fid, param);
-            Runtime.Notify("Fund Param: ", StorageGet(fid, param).AsBigInteger());
+            Runtime.Notify("Fund Param: ", StorageGet(fid, param));
             return StorageGet(fid, param);
         }
 
         // Querys to see if Fund has reached its goal
         private static bool ReachedGoal(string fid)
         {
-            Runtime.Notify("Checking Goal: ", fid);
-
             // Get stored values
             BigInteger goal = GetFundParameter(fid, "goal").AsBigInteger();
             BigInteger balance = GetFundParameter(fid, "fundBalance").AsBigInteger();
@@ -230,12 +326,10 @@ namespace NeoFund
         // Querys to see if Fund has reached its goal
         private static bool ReachedEndTime(string fid)
         {
-            Runtime.Notify("Checking End Time: ", fid);
-
             // Get stored values
             BigInteger endtime = GetFundParameter(fid, "endtime").AsBigInteger();
             BigInteger currentTime = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp + 15; // previousBlockTime + 15 sec
-
+            
             // If Balance is higher than goal
             if (currentTime >= endtime) return true;
             else return false;
@@ -243,39 +337,48 @@ namespace NeoFund
 
         private static bool IsRefundActive(string fid)
         {
-            Runtime.Notify("Checking refund Status: ", fid);
+            Runtime.Notify("IsRefundActive() => Checking refund Status :", fid);
 
-            // If the goal hasnt been met
+            // If the goal HAS NOT been met
             if (ReachedGoal(fid)) return false;
+            Runtime.Notify("IsRefundActive() => Goal Not Met");
 
-            // And If the end time also hasnt been met
-            if (ReachedEndTime(fid)) return true;
+            // And If the end time HAS been met
+            Runtime.Notify("IsRefundActive() => Reached end time?", ReachedEndTime(fid));
+            if (!ReachedEndTime(fid)) return false;
+            Runtime.Notify("IsRefundActive() => Reached End Time");
 
-            // Then Refund not active
-            return false;
+            // Then Refund process active (aka fund failed)
+            return true;
         }
 
+        // Checks contributorSH through all funds on contract
         private static BigInteger GetTotalFundsOwed(byte[] contributorSH)
         {
-            Runtime.Notify("Getting Total Funds Owed: ", contributorSH);
+            Runtime.Notify("GetTotalFundsOwed() => Getting Total Funds Owed: ", contributorSH);
 
             BigInteger totalOwed = 0;
 
-            byte[][] contributedFunds = GetFundsFromContributorSH(contributorSH);
+            string[] contributedFunds = GetFundsFromContributorSH(contributorSH);
+            Runtime.Notify("GetTotalFundsOwed() => contributedFunds.Length", contributedFunds.Length);
+            Runtime.Notify("GetTotalFundsOwed() => CheckContributorOwed()", CheckContributorOwed("fund11", contributorSH));
 
-            for (int i = 0; i < contributedFunds.Length; i++)
+            //for (int i = 0; i < contributedFunds.Length; i++)
+            foreach (string fid in contributedFunds)
             {
-                string fid = contributedFunds[i].AsString();
-                totalOwed += GetContributorInfo(fid, contributorSH, "owed").AsBigInteger();
+                //string fid = contributedFunds[i];
+                Runtime.Notify("GetTotalFundsOwed() => fid", fid);
+                BigInteger owed = CheckContributorOwed(fid, contributorSH);
+                totalOwed += owed;
             }
 
-            Runtime.Notify("Total Funds Owed: ", totalOwed);
+            Runtime.Notify("GetTotalFundsOwed() => Total Funds Owed: ", totalOwed);
             return totalOwed;
         }
 
         // TODO, Need to verify this.
         // Gets the sender transaction object [AssetId, ScriptHash, Value]
-        private static TransactionOutput GetSenderObject(byte[] asset)
+        private static TransactionOutput[] GetSenderObjects()
         {
             // TODO
             // So we only call GetReferences() once
@@ -287,7 +390,11 @@ namespace NeoFund
 
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
             TransactionOutput[] references = tx.GetOutputs();
+            return references;
+        }
 
+        private static TransactionOutput GetSenderObjectForAsset(TransactionOutput[] references, byte[] asset)
+        {
             foreach (TransactionOutput reference in references)
             {
                 //return reference;
@@ -303,44 +410,58 @@ namespace NeoFund
             return new TransactionOutput();
         }
 
+        private static TransactionOutput GetSenderObject(TransactionOutput[] references)
+        {
+            foreach (TransactionOutput reference in references)
+            {
+                return reference;
+            }
+
+            // Return Null object
+            return new TransactionOutput();
+        }
+
         // Gets the amount of assest depositied
         private static BigInteger GetTransactionAmount(byte[] asset)
         {
             // Gets the sender transaction object [AssetId, ScriptHash, Value]
-            TransactionOutput senderObject = GetSenderObject(asset);
+            TransactionOutput senderObject = GetSenderObjectForAsset(GetSenderObjects(), asset);
 
             BigInteger actualAmount = (long)senderObject.Value / (long)100000000;
 
-            //// If the transaction asset matches return the amount
+            // If the transaction asset matches return the amount
             if (senderObject.AssetId == asset) return actualAmount;
 
             return actualAmount;
         }
 
         // Saves funds accociated to contributorSH
-        private static void AddFundToContributorSH(byte[] contributorSH, string fid)
+        private static void AddFundToContributorSH(string fid, byte[] contributorSH)
         {
             // Gets the saved amount of funds accociated to contributorSH
             BigInteger numFunds = Storage.Get(Storage.CurrentContext, string.Concat(contributorSH, "numFunds")).AsBigInteger();
+            Runtime.Notify("numFunds:", numFunds);
 
             // Saves the input fund to the contributorSH at the +1 numFunds index
+            Storage.Put(Storage.CurrentContext, string.Concat(contributorSH, "numFunds"), numFunds + 1);
             Storage.Put(Storage.CurrentContext, string.Concat(contributorSH, (numFunds + 1)), fid);
         }
 
         // Gets funds accociated to contributorSH
-        private static byte[][] GetFundsFromContributorSH(byte[] contributorSH)
+        private static string[] GetFundsFromContributorSH(byte[] contributorSH)
         {
             // Gets the saved amount of funds accociated to contributorSH
             int numFunds = (int)Storage.Get(Storage.CurrentContext, string.Concat(contributorSH, "numFunds")).AsBigInteger();
+            Runtime.Notify("numFunds:", numFunds);
 
             // Empty byte array array at length of numFunds
-            byte[][] funds = new byte[numFunds][];
+            string[] funds = new string[numFunds];
 
             // Loop through each fund index and Get from storage
             for (int i = 0; i < numFunds; i++)
             {
-                string fid = Storage.Get(Storage.CurrentContext, string.Concat(contributorSH, i)).AsString();
-                funds[i] = fid.AsByteArray();
+                string fid = Storage.Get(Storage.CurrentContext, string.Concat(contributorSH, i+1)).AsString();
+                funds[i] = fid;
             }
 
             // Returns funds byte array array
@@ -361,6 +482,7 @@ namespace NeoFund
                 // Saving contributorSH to fund
                 SubStoragePut(fid, "contributorSH", contributorSH.AsString(), contributorSH);
                 bal = GetTransactionAmount(asset);
+                AddFundToContributorSH(fid, contributorSH);
             }
 
             // If contributorSH already exists
@@ -377,6 +499,25 @@ namespace NeoFund
             SubStoragePut(fid, contributorSH.AsString(), "owed", owed.AsByteArray());
 
             return true;
+        }
+
+        private static BigInteger CheckContributorOwed(string fid, byte[] contributorSH)
+        {
+            BigInteger bal = GetContributorInfo(fid, contributorSH, "balance").AsBigInteger();
+            Runtime.Notify("CheckContributorOwed() => ContributorBalance", bal);
+            BigInteger owed = 0;
+
+            // If Funding has faild and the refund is active, entire balance is set to owed
+            if (IsRefundActive(fid)) owed = bal;
+            Runtime.Notify("CheckContributorOwed() => IsRefundActive(fid)", true);
+            Runtime.Notify("CheckContributorOwed() => owed", owed);
+            Runtime.Notify("CheckContributorOwed() => owed.AsByteArray()", owed.AsByteArray());
+
+            // Update contributorSH Storage details
+            //SubStoragePut(fid, contributorSH.AsString(), "owed", owed.AsByteArray());
+
+            Runtime.Notify("CheckContributorOwed() => Owed: ", owed);
+            return owed;
         }
 
         // Gets params of Contributor Address within the specified fund
