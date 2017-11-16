@@ -8,7 +8,6 @@ namespace NeoFund
 {
     public class NeoFundContract : Neo.SmartContract.Framework.SmartContract
     {
-        private static readonly byte[] neo = { 197, 111, 51, 252, 110, 207, 205, 12, 34, 92, 74, 179, 86, 254, 229, 147, 144, 175, 133, 96, 190, 147, 15, 174, 190, 116, 166, 218, 255, 124, 155 };
         private static readonly byte[] admin = { 0 };
         //public static TransactionOutput[] references = new TransactionOutput[0];
 
@@ -35,7 +34,6 @@ namespace NeoFund
                     // if Requested is less than GetFundsOwed()
                     BigInteger withdrawHold = StorageGet(contributorSH.AsString(), "withdrawHold").AsBigInteger();
                     Runtime.Notify("TriggerType.Verification => withdrawHold", withdrawHold);
-                    //Runtime.Notify("TriggerType.Verification => StorageGet(withdrawHold)", StorageGet(contributorSH.AsString(), "withdrawHold"));
 
                     return true;
 
@@ -57,8 +55,6 @@ namespace NeoFund
                 //      Admin:          SetFee
                 //      Creator:        CreateFund, DeleteFund
                 //      Contributor:    DepositFunds, GetFundParameter, ReachedGoal, ReachedEndTime, IsRefundActive, GetContributorInfo, GetFundsOwed 
-                //  
-                //      Todo: Donation/Reward Tiers, GetNumContributors 
 
                 // ADMIN // 
                 // TODO - Does nothing
@@ -101,26 +97,25 @@ namespace NeoFund
                 if (operation == "GetFundsFromContributorSH") return GetFundsFromContributorSH((byte[])args[0]);
 
                 // SUBMIT WITHDRAW REQUEST
-                if (operation == "WithdrawFundsRequest") return WithdrawAllFundsRequest((string)args[0], (byte[])args[1], (BigInteger)args[2]);
+                if (operation == "WithdrawFundsRequest") return WithdrawFundsRequest((string)args[0], (byte[])args[1], (BigInteger)args[2]);
+                
+                // SUBMIT WITHDRAW REQUEST RESET
+                if (operation == "WithdrawRequestReset") return WithdrawRequestReset((string)args[0], (byte[])args[1]);
 
             }
 
             return false;
         }
 
-        private static bool WithdrawAllFundsRequest(string fid, byte[] contributorSH, BigInteger requestedAmount)
+        private static bool WithdrawFundsRequest(string fid, byte[] contributorSH, BigInteger requestedAmount)
         {
             if (requestedAmount <= 0) return false;
 
             // contributorSH Check
-            if (!IsContributorSH(contributorSH))
-            {
-                Runtime.Notify("WithdrawFundsRequest() => contributorSH is not Vaild", contributorSH);
-                //return false;
-            }
-            
+            if (!IsContributorSH(contributorSH)) return false;
+
             // Calculates total amount 
-            BigInteger totalOwed = GetFundsOwed(contributorSH);
+            BigInteger totalOwed = GetFundsOwed(fid, contributorSH);
 
             // If Requested is more than GetFundsOwed() = FAIL
             if (requestedAmount > totalOwed)
@@ -160,6 +155,18 @@ namespace NeoFund
             Runtime.Notify("WithdrawFundsRequest() => Sucessfully sent withdraw request");
             return true;
         }
+
+        private static bool WithdrawRequestReset(string fid, byte[] contributorSH)
+        {
+            // contributorSH Check
+            if (!IsContributorSH(contributorSH)) return false;
+
+            BigInteger defaultValue = 0;
+            StoragePut(contributorSH.AsString(), "withdrawHold", defaultValue.AsByteArray());
+
+            return true;
+        }
+
 
         private static bool CreateFund(byte[] creatorSH, string fid, byte[] asset, byte[] withdrawalSH, BigInteger goal, BigInteger endtime)
         {
@@ -501,6 +508,8 @@ namespace NeoFund
         {
             // If sender is script hash
             if (ContributorSH.Length == 20) return Runtime.CheckWitness(ContributorSH);
+
+            Runtime.Notify("IsContributorSH() => contributorSH is not Vaild", ContributorSH);
             return false;
         }
 
