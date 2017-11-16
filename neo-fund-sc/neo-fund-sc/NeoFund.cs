@@ -50,11 +50,11 @@ namespace NeoFund
             // Invocation transaction
             else if (Runtime.Trigger == TriggerType.Application)
             {
-                Runtime.Notify("Runtime.Trigger");
+                Runtime.Notify("TriggerType.Application");
                 // Operation Permissions:
                 //      Admin:          SetFee
                 //      Creator:        CreateFund, DeleteFund
-                //      Contributor:    DepositFunds, GetFundParameter, ReachedGoal, ReachedEndTime, IsRefundActive, GetContributorInfo, GetFundsOwed 
+                //      Contributor:    DepositFunds, GetFundParameter, ReachedGoal, ReachedEndTime, IsRefundActive, GetContributorInfo, CheckContributorOwed 
 
                 // ADMIN // 
                 // TODO - Does nothing
@@ -100,7 +100,7 @@ namespace NeoFund
                 if (operation == "WithdrawFundsRequest") return WithdrawFundsRequest((string)args[0], (byte[])args[1], (BigInteger)args[2]);
                 
                 // SUBMIT WITHDRAW REQUEST RESET
-                if (operation == "WithdrawRequestReset") return WithdrawRequestReset((string)args[0], (byte[])args[1]);
+                if (operation == "WithdrawRequestReset") return WithdrawRequestReset((byte[])args[0]);
 
             }
 
@@ -115,12 +115,12 @@ namespace NeoFund
             if (!IsContributorSH(contributorSH)) return false;
 
             // Calculates total amount 
-            BigInteger totalOwed = GetFundsOwed(fid, contributorSH);
+            BigInteger fundsOwed = CheckContributorOwed(fid, contributorSH);
 
-            // If Requested is more than GetFundsOwed() = FAIL
-            if (requestedAmount > totalOwed)
+            // If Requested is more than CheckContributorOwed() = FAIL
+            if (requestedAmount > fundsOwed)
             {
-                Runtime.Notify("WithdrawFundsRequest() => withdrawRequested too high");
+                Runtime.Notify("WithdrawFundsRequest() => withdrawRequested too high, max owing is:", fundsOwed);
                 return false;
             }
             
@@ -156,13 +156,13 @@ namespace NeoFund
             return true;
         }
 
-        private static bool WithdrawRequestReset(string fid, byte[] contributorSH)
+        private static bool WithdrawRequestReset(byte[] contributorSH)
         {
             // contributorSH Check
             if (!IsContributorSH(contributorSH)) return false;
 
-            BigInteger defaultValue = 0;
-            StoragePut(contributorSH.AsString(), "withdrawHold", defaultValue.AsByteArray());
+            StoragePut(contributorSH.AsString(), "withdrawHold", new byte[0]);
+            Runtime.Notify("Reset Withdraw Request!");
 
             return true;
         }
@@ -259,8 +259,6 @@ namespace NeoFund
 
         private static bool IsRefundActive(string fid)
         {
-            Runtime.Notify("IsRefundActive() => Checking refund Status :", fid);
-
             // If the goal HAS NOT been met
             if (ReachedGoal(fid)) return false;
 
@@ -271,16 +269,7 @@ namespace NeoFund
             return true;
         }
 
-        // Checks contributorSH through all funds on contract
-        private static BigInteger GetFundsOwed(string fid, byte[] contributorSH)
-        {
-            string[] contributedFunds = GetFundsFromContributorSH(contributorSH);
 
-            BigInteger owed = CheckContributorOwed(fid, contributorSH);
-
-            Runtime.Notify("GetFundsOwed() => Total Funds Owed: ", owed);
-            return owed;
-        }
 
         // Gets the sender transaction object [AssetId, ScriptHash, Value]
         private static TransactionOutput[] GetSenderObjects()
@@ -489,16 +478,16 @@ namespace NeoFund
         }
 
         // Checks input sender script hash if its the fid's creator, and if its a Checked Witness.
-        private static bool IsCreatorSH(byte[] sender, string fid)
+        private static bool IsCreatorSH(byte[] senderSH, string fid)
         {
             // If sender is script hash
-            if (sender.Length == 20)
+            if (senderSH.Length == 20)
             {
                 // Gets the verified creatorSH from storage
                 byte[] creatorSH = GetFundParameter(fid, "creatorSH");
 
-                // If input sender is admin, and if sender is verified as true
-                if (creatorSH == admin) return Runtime.CheckWitness(creatorSH);
+                // If input sender and creator match, and CheckWitness is true
+                if (creatorSH == senderSH) return Runtime.CheckWitness(senderSH);
             }
             return false;
         }
