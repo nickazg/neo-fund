@@ -29,30 +29,24 @@ namespace NeoFund
 
                 if (IsContributorSH(contributorSH))
                 {
-                    long withdrawRequested = (long)senderObject.Value / (long)100000000;
+                    BigInteger withdrawRequested = senderObject.Value / 100000000;
                     Runtime.Notify("TriggerType.Verification => withdrawRequested", withdrawRequested);
 
                     // if Requested is less than GetTotalFundsOwed()
                     BigInteger withdrawHold = StorageGet(contributorSH.AsString(), "withdrawHold").AsBigInteger();
                     Runtime.Notify("TriggerType.Verification => withdrawHold", withdrawHold);
-                    Runtime.Notify("TriggerType.Verification => StorageGet(withdrawHold)", StorageGet(contributorSH.AsString(), "withdrawHold"));
-
-                    if (withdrawRequested != withdrawHold) return false;
-
-                    Runtime.Notify("TriggerType.Verification => Passed transaction");
+                    //Runtime.Notify("TriggerType.Verification => StorageGet(withdrawHold)", StorageGet(contributorSH.AsString(), "withdrawHold"));
 
                     return true;
 
+                    // TODO
+                    //if (withdrawRequested <= withdrawHold)
+                    //{
+                    //    //Runtime.Notify("TriggerType.Verification => Passed transaction");
+                    //    return true;
+                    //}
                     //Runtime.Notify("TriggerType.Verification => withdrawRequested too high");
-                    //return true;
-
-
-
-
                 }
-
-                return true;
-                // Withdrawl Transaction to goal address (Allow if goal is reached)
             }
 
             // Invocation transaction
@@ -121,7 +115,6 @@ namespace NeoFund
 
                 // GET TOTAL FUNDS OWED TO CONTRIBUTOR: (GetContributorInfo)
                 if (operation == "GetTotalFundsOwed") return GetTotalFundsOwed((byte[])args[0]);
-
 
                 if (operation == "WithdrawFundsRequest") return WithdrawAllFundsRequest((string)args[0], (byte[])args[1], (BigInteger)args[2]);
 
