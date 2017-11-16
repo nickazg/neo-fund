@@ -13,7 +13,7 @@ namespace NeoFund
 
         public static Object Main(string operation, params object[] args)
         {
-            Runtime.Notify("Version 1.25");
+            Runtime.Notify("Version 1.0");
             Runtime.Notify("Runtime.Trigger", Runtime.Trigger);
             Runtime.Notify("operation", operation);
             Runtime.Notify("arg length ", args.Length);
@@ -28,22 +28,22 @@ namespace NeoFund
 
                 if (IsContributorSH(contributorSH))
                 {
+                    // Getting Requested TX value
                     BigInteger withdrawRequested = senderObject.Value / 100000000;
-                    Runtime.Notify("TriggerType.Verification => withdrawRequested", withdrawRequested);
 
-                    // if Requested is less than GetFundsOwed()
+                    // Getting pre approved withdraw value for contributorSH
                     BigInteger withdrawHold = StorageGet(contributorSH.AsString(), "withdrawHold").AsBigInteger();
-                    Runtime.Notify("TriggerType.Verification => withdrawHold", withdrawHold);
 
-                    return true;
+                    // This should always be 0
+                    BigInteger balance = withdrawRequested - withdrawHold;
 
-                    // TODO
-                    //if (withdrawRequested <= withdrawHold)
-                    //{
-                    //    //Runtime.Notify("TriggerType.Verification => Passed transaction");
-                    //    return true;
-                    //}
-                    //Runtime.Notify("TriggerType.Verification => withdrawRequested too high");
+                    if (balance == 0)
+                    {
+                        Runtime.Notify("TriggerType.Verification => Passed transaction");
+                        return true;
+                    }
+
+                    Runtime.Notify("TriggerType.Verification => Withdraw value needs to be pre approved via WithdrawFundsRequest");
                 }
             }
 
