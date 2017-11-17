@@ -13,11 +13,6 @@
 # Contract
 Hash: 0x76dfef16ed0427ab26d970dee2a2e275ce526354
 
-Addr: APU5Pj8mrMFn1bwto6Wtp7VtPfmasBc63E
-
-or
-
-Addr: AGAKRJ2U535AKDKMfTcWZdEfUgD2XDtpJ5
 
 ## Overview
 Neo Fund is a decentralized funding platform, similar to kickstarter.. The basic function is to set a goal amount, and date limit. If the goal is reached the creator of the fund will be awarded the funds, and if not the contributors can redeem their funds again..
@@ -40,7 +35,14 @@ Neo Fund is a decentralized funding platform, similar to kickstarter.. The basic
 - GetFundsOwed
 
 
-## Using Neo Fund
+
+# Using Neo Fund
+
+### Using neo-python:
+Copy `neo-fund-py\neo-fund-prompt.py` into the `neo-python` root directory and run `python neo-fund-prompt.py -c protocol.testnet.json` instead of `python prompt.py -c protocol.testnet.json` and then use tab complete to see all the options.
+
+### Manual invoke:
+
 
 #### Process:
 The contract input looks like this, so all operations are called by the first string, followed by an array of arguments
@@ -90,3 +92,10 @@ Third; It is currently required to invoke a WithdrawRequestReset method do avoid
 ```
 "WithdrawRequestReset",[byte[] requestorSH]
 ```
+
+
+
+
+#### Test TX (Creating fund)
+
+https://neoscan-testnet.io/transaction/2548ddb8aac6c18cd916358da4cea21da009d9afb312a318f16de001d40539a6
