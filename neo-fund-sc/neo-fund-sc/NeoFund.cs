@@ -107,61 +107,90 @@ namespace NeoFund
             return false;
         }
 
-        private static bool WithdrawFundsRequest(string fid, byte[] contributorSH, BigInteger requestedAmount)
+        private static bool WithdrawFundsRequest(string fid, byte[] requestorSH, BigInteger requestedAmount)
         {
             if (requestedAmount <= 0) return false;
 
-            // contributorSH Check
-            if (!IsContributorSH(contributorSH)) return false;
-
-            // Calculates total amount 
-            BigInteger fundsOwed = CheckContributorOwed(fid, contributorSH);
-
-            // If Requested is more than CheckContributorOwed() = FAIL
-            if (requestedAmount > fundsOwed)
+            // If the fund completed sucessfully, the creator can withdraw the entire balance
+            if (IsCreatorSH(requestorSH, fid))
             {
-                Runtime.Notify("WithdrawFundsRequest() => withdrawRequested too high, max owing is:", fundsOwed);
-                return false;
-            }
-            
-            // Gets current balance for contributorSH
-            BigInteger bal = SubStorageGet(fid, contributorSH.AsString(), "balance").AsBigInteger();
-            BigInteger owed = SubStorageGet(fid, contributorSH.AsString(), "owed").AsBigInteger();
+                Runtime.Notify("WithdrawFundsRequest() => IsCreator");
+                // Funding failed, all funds will be returned..
+                if (IsRefundActive(fid)) return false;
+                Runtime.Notify("WithdrawFundsRequest() => IsRefundActive", "NO");
 
-            // Removes an even portion of each fund balance                            
-            BigInteger newOwed = owed;
+                if (ReachedGoal(fid))
+                {
+                    Runtime.Notify("WithdrawFundsRequest() => ReachedGoal", "YES");
+                    BigInteger fundBalance = GetFundParameter(fid, "fundBalance").AsBigInteger();
+                    Runtime.Notify("WithdrawFundsRequest() => fundBalance", fundBalance);
+                    if (requestedAmount <= fundBalance)
+                    {
+                        BigInteger newBalance = fundBalance - requestedAmount;
+                        StoragePut(fid, "fundBalance", newBalance.ToByteArray());
+                        Runtime.Notify("WithdrawFundsRequest() => Sucessfully sent Creator withdraw request");
+                        return true;
+                    }
+                }
 
-            // If withdraw Request can be filled
-            if (requestedAmount <= owed)
-            {
-                newOwed = owed - requestedAmount;
-            }
-
-            // If withdraw Requested can only be partially filled
-            else if (requestedAmount > owed)
-            {
-                newOwed = 0;
+                return true;
             }
 
-            // Update fund balance
-            BigInteger newBal = bal - (owed - newOwed);
+            // If the fund failed, the Contributor can withdraw their funds
+            if (IsContributorSH(requestorSH))
+            {
+                Runtime.Notify("WithdrawFundsRequest() => IsContributor");
+                // Calculates total amount 
+                BigInteger fundsOwed = CheckContributorOwed(fid, requestorSH);
 
-            // Update contributorSH Storage details
-            SubStoragePut(fid, contributorSH.AsString(), "balance", newBal.AsByteArray());
-            SubStoragePut(fid, contributorSH.AsString(), "owed", newOwed.AsByteArray());    
+                // If Requested is more than CheckContributorOwed() = FAIL
+                if (requestedAmount > fundsOwed)
+                {
+                    Runtime.Notify("WithdrawFundsRequest() => withdrawRequested too high, max owing is:", fundsOwed);
+                    return false;
+                }
 
-            StoragePut(contributorSH.AsString(), "withdrawHold", requestedAmount.AsByteArray());
+                // Gets current balance for requestorSH
+                BigInteger bal = SubStorageGet(fid, requestorSH.AsString(), "balance").AsBigInteger();
+                BigInteger owed = SubStorageGet(fid, requestorSH.AsString(), "owed").AsBigInteger();
 
-            Runtime.Notify("WithdrawFundsRequest() => Sucessfully sent withdraw request");
-            return true;
+                // Removes an even portion of each fund balance                            
+                BigInteger newOwed = owed;
+
+                // If withdraw Request can be filled
+                if (requestedAmount <= owed)
+                {
+                    newOwed = owed - requestedAmount;
+                }
+
+                // If withdraw Requested can only be partially filled
+                else if (requestedAmount > owed)
+                {
+                    newOwed = 0;
+                }
+
+                // Update fund balance
+                BigInteger newBal = bal - (owed - newOwed);
+
+                // Update requestorSH Storage details
+                SubStoragePut(fid, requestorSH.AsString(), "balance", newBal.AsByteArray());
+                SubStoragePut(fid, requestorSH.AsString(), "owed", newOwed.AsByteArray());
+
+                StoragePut(requestorSH.AsString(), "withdrawHold", requestedAmount.AsByteArray());
+
+                Runtime.Notify("WithdrawFundsRequest() => Sucessfully sent Contributor withdraw request");
+                return true;
+            }
+
+            return false;
         }
 
-        private static bool WithdrawRequestReset(byte[] contributorSH)
+        private static bool WithdrawRequestReset(byte[] requestorSH)
         {
-            // contributorSH Check
-            if (!IsContributorSH(contributorSH)) return false;
+            // requestorSH Check
+            if (!IsContributorSH(requestorSH)) return false;
 
-            StoragePut(contributorSH.AsString(), "withdrawHold", new byte[0]);
+            StoragePut(requestorSH.AsString(), "withdrawHold", new byte[0]);
             Runtime.Notify("Reset Withdraw Request!");
 
             return true;
