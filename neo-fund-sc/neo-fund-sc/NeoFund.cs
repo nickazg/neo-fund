@@ -8,16 +8,10 @@ namespace NeoFund
 {
     public class NeoFundContract : Neo.SmartContract.Framework.SmartContract
     {
-        private static readonly byte[] admin = { 0 };
-        //public static TransactionOutput[] references = new TransactionOutput[0];
 
         public static Object Main(string operation, params object[] args)
         {
             Runtime.Notify("Version 1.0");
-            Runtime.Notify("Runtime.Trigger", Runtime.Trigger);
-            Runtime.Notify("operation", operation);
-            Runtime.Notify("arg length ", args.Length);
-            Runtime.Notify("args", args);
 
             // Contract transaction, ie assest deposit/withdrawl transaction (operation == signature)
             if (Runtime.Trigger == TriggerType.Verification)
@@ -52,14 +46,8 @@ namespace NeoFund
             {
                 Runtime.Notify("TriggerType.Application");
                 // Operation Permissions:
-                //      Admin:          SetFee
                 //      Creator:        CreateFund, DeleteFund
                 //      Contributor:    DepositFunds, GetFundParameter, ReachedGoal, ReachedEndTime, IsRefundActive, GetContributorInfo, CheckContributorOwed 
-
-                // ADMIN // 
-                // TODO - Does nothing
-                // SET FEE 
-                if (operation == "SetFee") return SetFee((byte[])args[0], (BigInteger)args[1]);
 
                 // CREATOR //
                 // CREATE FUND
@@ -128,6 +116,7 @@ namespace NeoFund
                     {
                         BigInteger newBalance = fundBalance - requestedAmount;
                         StoragePut(fid, "fundBalance", newBalance.ToByteArray());
+                        StoragePut(requestorSH.AsString(), "withdrawHold", requestedAmount.AsByteArray());
                         Runtime.Notify("WithdrawFundsRequest() => Sucessfully sent Creator withdraw request");
                         return true;
                     }
@@ -478,32 +467,6 @@ namespace NeoFund
             Runtime.Notify("Storage.Get(fid)", Storage.Get(Storage.CurrentContext, fid));
             if (Storage.Get(Storage.CurrentContext, fid) == null) return false;
             else return true;
-        }
-
-        // Sets the contract fee, only by the checked admin
-        private static bool SetFee(byte[] sender, BigInteger fee)
-        {
-            Runtime.Notify("Setting Fee: ", fee, sender);
-
-            // if Admin
-            if (!IsAdminSH(sender)) return false;
-
-            Storage.Put(Storage.CurrentContext, "Fee", fee);
-
-            Runtime.Notify("Fee Set: ", fee);
-            return true;
-        }
-
-        // Checks input sender script hash if its the contract admin, and if its a Checked Witness.
-        private static bool IsAdminSH(byte[] sender)
-        {
-            // If sender is script hash
-            if (sender.Length == 20)
-            {
-                // If input sender is admin, and if sender is verified as true
-                if (sender == admin) return Runtime.CheckWitness(sender);
-            }
-            return false;
         }
 
         // Checks input sender script hash if its the fid's creator, and if its a Checked Witness.
